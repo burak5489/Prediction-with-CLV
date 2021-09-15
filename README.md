@@ -1,6 +1,7 @@
 # burakhakanakin
 ##############################################################
-#  1. 2010-2011 UK müşterileri için 6 aylık CLTV prediction yapacağız.
+#  1. We will make a CLTV prediction for 2010-2011 UK customers 6 month period 
+#     2010-2011 UK müşterileri için 6 aylık CLTV prediction yapacağız.
 ##############################################################
 
 #######################
@@ -18,7 +19,7 @@ pd.set_option('display.float_format', lambda x: '%.5f' % x)
 
 
 #######################
-# Verinin excel'den okunması
+# Verinin excel'den okunması (reading from excel)
 #######################
 
 df_ = pd.read_excel("datasets/online_retail_II.xlsx",
@@ -27,7 +28,7 @@ df_ = pd.read_excel("datasets/online_retail_II.xlsx",
 df = df_.copy()
 
 #######################
-# Veri Ön İşleme
+# Veri Ön İşleme (data preprocessing)
 #######################
 
 df = df[df["Country"] == "United Kingdom"]
@@ -59,14 +60,17 @@ df["TotalPrice"] = df["Quantity"] * df["Price"]
 today_date = dt.datetime(2011, 12, 11)
 
 #######################
-# Lifetime veri yapısının hazırlanması
+# Lifetime veri yapısının hazırlanması (preparing CLTV data strucure)
 #######################
 
 # recency: Son satın alma üzerinden geçen zaman. Haftalık. (cltv_df'de analiz gününe göre, burada kullanıcı özelinde)
+#          Time since last purchase (weekly)
 # T: Müşterinin yaşı. Haftalık. (analiz tarihinden ne kadar süre önce ilk satın alma yapılmış)
+#    Age of customer (weekly). How long ago from the analysis date the first purchase was made.
 # frequency: tekrar eden toplam satın alma sayısı (frequency>1)
+#            total number of repeat purchases.
 # monetary_value: satın alma başına ortalama kazanç
-
+#                 average earnings per purchase
 cltv_df = df.groupby('Customer ID').agg({'InvoiceDate': [lambda date: (date.max() - date.min()).days,
                                                          lambda date: (today_date - date.min()).days],
                                          'Invoice': lambda num: num.nunique(),
@@ -74,26 +78,26 @@ cltv_df = df.groupby('Customer ID').agg({'InvoiceDate': [lambda date: (date.max(
 
 cltv_df.columns = cltv_df.columns.droplevel(0)
 
-# değişkenlerin isimlendirilmesi
+# değişkenlerin isimlendirilmesi (naming variables)
 cltv_df.columns = ['recency', 'T', 'frequency', 'monetary']
 
-# monetary değerinin satın alma başına ortalama kazanç olarak ifade edilmesi
+# monetary değerinin satın alma başına ortalama kazanç olarak ifade edilmesi ( Expressing monetary value as average earnings per purchase)
 cltv_df["monetary"] = cltv_df["monetary"] / cltv_df["frequency"]
 
-# monetary sıfırdan büyük olanların seçilmesi
+# monetary sıfırdan büyük olanların seçilmesi (Choosing those greater than monetary zero)
 cltv_df = cltv_df[cltv_df["monetary"] > 0]
 cltv_df.head()
 
-# BGNBD için recency ve T'nin haftalık cinsten ifade edilmesi
+# BGNBD için recency ve T'nin haftalık cinsten ifade edilmesi (Expression of recency and T for BGNBD in weekly terms)
 cltv_df["recency"] = cltv_df["recency"] / 7
 cltv_df["T"] = cltv_df["T"] / 7
 
-# frequency'nin 1'den büyük olması gerekmektedir.
+# frequency'nin 1'den büyük olması gerekmektedir (frequency must be greater than 1)
 cltv_df = cltv_df[(cltv_df['frequency'] > 1)]
 
 
 #######################
-# BG/NBD Modelinin Kurulması
+# BG/NBD Modelinin Kurulması (Establishing the BG/NBD Model)
 #######################
 
 # pip install lifetimes
@@ -103,7 +107,7 @@ bgf.fit(cltv_df['frequency'],
         cltv_df['T'])
 
 #######################
-# GAMMA-GAMMA Modelinin Kurulması
+# GAMMA-GAMMA Modelinin Kurulması (Establishing the GAMMA-GAMMA Model)
 #######################
 
 ggf = GammaGammaFitter(penalizer_coef=0.01)
@@ -121,7 +125,7 @@ cltv_df["expected_average_profit"] = ggf.conditional_expected_average_profit(clt
 cltv_df.sort_values("expected_average_profit", ascending=False).head(20)
 
 #######################
-# BG-NBD ve GG modeli ile CLTV'nin hesaplanması.
+# BG-NBD ve GG modeli ile CLTV'nin hesaplanması (Calculation of CLTV with BG-NBD and GG model)
 #######################
 
 cltv = ggf.customer_lifetime_value(bgf,
@@ -142,16 +146,12 @@ cltv_final = cltv_df.merge(cltv, on="Customer ID", how="left")
 cltv_final.sort_values(by="clv", ascending=False).head()
 cltv_final.sort_values(by="clv", ascending=False)[10:30]
 
-#  2010-2011 UK müşterileri için 1 aylık ve 12 aylık CLTV hesaplalım.
-#  1 aylık CLTV'de en yüksek olan 10 kişi ile 12 aylık'taki en yüksek 10 kişiyi analiz edelim.
-
-
-# Dikkat! Sıfırdan model kurulmasına gerek yoktur. Önceki soruda oluşturulan
-# model üzerinden ilerlenebilir.
+#  2010-2011 UK müşterileri için 1 aylık ve 12 aylık CLTV hesaplalım (Let's calculate 1-month and 12-month CLTV for 2010-2011 UK customers)
+#  1 aylık CLTV'de en yüksek olan 10 kişi ile 12 aylık'taki en yüksek 10 kişiyi analiz edelim (Let's analyze the top 10 people at 1-month CLTV and the top 10 people at 12 months.)
 
 
 ##############################################################
-# 1. 2010-2011 UK müşterileri için 1 aylık ve 12 aylık CLTV hesaplıyoruz.
+# 1. 2010-2011 UK müşterileri için 1 aylık ve 12 aylık CLTV hesaplıyoruz (We calculate 1-month and 12-month CLTV for 2010-2011 UK customers)
 ##############################################################
 cltv1 = ggf.customer_lifetime_value(bgf,
                                     cltv_df['frequency'],
@@ -178,24 +178,14 @@ rfm_cltv12_final = cltv_df.merge(cltv12, on="Customer ID", how="left")
 rfm_cltv12_final.head()
 
 ##############################################################
-# 2. 1 aylık CLTV'de en yüksek olan 10 kişi ile 12 aylık'taki en yüksek 10 kişiyi analiz ediniz. Fark var mı?
-# Varsa sizce neden olabilir?
+#  1 aylık CLTV'de en yüksek olan 10 kişi ile 12 aylık'taki en yüksek 10 kişiyi analiz ediniz. Fark var mı? (Analyze the top 10 people at 1 month CLTV and the 10 highest at 12 months. Is there a difference?)
+# Varsa sizce neden olabilir? (If so, why do you think it could be?)
 ##############################################################
 rfm_cltv1_final.sort_values("clv", ascending=False).head(10)
 rfm_cltv12_final.sort_values("clv", ascending=False).head(10)
 
-
-
 ##############################################################
-# Bazı yorunlamalar yapalım
-##############################################################
-# 1. 2010-2011 UK müşterileri için 6 aylık CLTV'ye göre tüm müşterilerinizi 4 gruba (segmente) ayırınız ve grup isimlerini veri setine ekleyiniz.
-# 2. CLTV skorlarına göre müşterileri 4 gruba ayırmak mantıklı mıdır?
-# Daha az mı ya da daha çok mu olmalıdır. Yorumlayınız.
-# 3. 4 grup içerisinden seçeceğiniz 2 grup için yönetime kısa kısa 6 aylık aksiyon önerilerinde bulununuz
-
-##############################################################
-# 1. 2010-2011 UK müşterileri için 6 aylık CLTV'ye göre tüm müşterilerinizi 4 gruba (segmente) ayırınız ve grup isimlerini veri setine ekleyiniz.
+#  2010-2011 UK müşterileri için 6 aylık CLTV'ye göre tüm müşterilerinizi 4 gruba (segmente) ayırınız ve grup isimlerini veri setine ekleyiniz. (For 2010-2011 UK customers, divide all your customers into 4 groups (segments) according to 6-month CLTV and add the group names to the dataset)
 ##############################################################
 cltv = ggf.customer_lifetime_value(bgf,
                                    cltv_df['frequency'],
@@ -213,7 +203,3 @@ cltv_final["cltv_segment"] = pd.qcut(cltv_final["clv"], 4, labels=["D", "C", "B"
 cltv_final.head()
 
 
-##############################################################
-# 2. CLTV skorlarına göre müşterileri 4 gruba ayırmak mantıklı mıdır?
-##############################################################
-cltv_final.groupby("cltv_segment").agg({"mean"})
