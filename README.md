@@ -1,4 +1,4 @@
-# burakhakanakin
+# BGNBD-GG MODELİ İLE CLTV TAHMİNİ
 ##############################################################
 #  1. We will make a CLTV prediction for 2010-2011 UK customers 6 month period 
 #     2010-2011 UK müşterileri için 6 aylık CLTV prediction yapacağız.
